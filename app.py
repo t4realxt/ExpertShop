@@ -26,9 +26,16 @@ mail= Mail(app)
 login_manager= LoginManager()
 login_manager.init_app(app)
 login_manager.login_view= 'login'
+
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    if not user_id or user_id == "None":
+        return None
+
+    try:
+        return User.query.get(int(user_id))
+    except (ValueError, TypeError):
+        return None
 
 db = SQLAlchemy(app)
 
@@ -45,6 +52,7 @@ category_fullnames= {
     "diger": "Diğer"
 }
 
+EMAIL_VERIFICATION_ENABLED = False
 
 # ----------------------------------------------------- Sınıflar -----------------------------------------------------
 
@@ -466,6 +474,7 @@ def register():
         password= request.form.get("password")
         email= request.form.get("email")
         role= request.form.get("role")
+        
         if not username or not password or not role or not email:
             flash("Kullanıcı adı veya şifre boş olamaz!", "danger")
             return redirect(url_for("register"))
@@ -473,6 +482,18 @@ def register():
         if User.query.filter_by(username=username).first():
             flash("Bu kullanıcı adı zaten alınmış!", "danger")
             return redirect(url_for('register'))
+        
+        if not EMAIL_VERIFICATION_ENABLED:
+            new_user = User(
+                username=username,
+                password=generate_password_hash(password),
+                email=email,
+                role=role
+            )
+            db.session.add(new_user)
+            db.session.commit()
+            login_user(new_user)
+            return redirect(url_for("home"))
         
         # Şifre güvenliği
         hashed_password= generate_password_hash(password)
@@ -551,7 +572,7 @@ def admin():
     user_id= current_user.id
     user= User.query.filter_by(id= user_id).first()
 
-    if not user or user.role== "seler" or user.role=="user":
+    if not user or user.role== "saler" or user.role=="user":
         return abort(403)
 
     users= User.query.all()
